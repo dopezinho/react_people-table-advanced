@@ -1,4 +1,4 @@
-import React, { ChangeEvent } from 'react';
+import React, { ChangeEvent, useCallback } from 'react';
 import cn from 'classnames';
 import { useSearchParams } from 'react-router-dom';
 
@@ -6,74 +6,93 @@ type PeopleFiltersProps = {
   isReady: boolean;
 };
 
+type SexValue = 'm' | 'f' | null;
+
+const CENTURY_FILTERS = [16, 17, 18, 19, 20] as const;
+
+const SEX_FILTERS: Array<{ label: string; value: SexValue }> = [
+  { label: 'All', value: null },
+  { label: 'Male', value: 'm' },
+  { label: 'Female', value: 'f' },
+] as const;
+
+const PARAM_KEYS = ['centuries', 'query', 'sex', 'sort', 'order'] as const;
+
 export const PeopleFilters: React.FC<PeopleFiltersProps> = ({ isReady }) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const CENTURY_FILTERS = [16, 17, 18, 19, 20] as const;
-  const SEX_FILTERS: Array<{ label: string; value: 'm' | 'f' | null }> = [
-    { label: 'All', value: null },
-    { label: 'Male', value: 'm' },
-    { label: 'Female', value: 'f' },
-  ];
-
+  // read current values
   const sex = searchParams.get('sex');
   const query = searchParams.get('query') || '';
   const centuries = searchParams.getAll('centuries');
 
-  function handleQueryChange(event: ChangeEvent<HTMLInputElement>) {
-    const value = event.target.value;
-    const params = new URLSearchParams(searchParams);
+  const handleQueryChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      const params = new URLSearchParams(searchParams);
 
-    if (value === '') {
-      params.delete('query');
-    } else {
-      params.set('query', value);
-    }
+      if (value.trim() === '') {
+        params.delete('query');
+      } else {
+        params.set('query', value);
+      }
 
-    setSearchParams(params);
-  }
+      setSearchParams(params);
+    },
+    [searchParams, setSearchParams],
+  );
 
-  function handleSexChange(next: 'm' | 'f' | null) {
-    const params = new URLSearchParams(searchParams);
+  const handleSexChange = useCallback(
+    (next: SexValue) => {
+      const params = new URLSearchParams(searchParams);
 
-    if (next === null) {
-      params.delete('sex');
-    } else {
-      params.set('sex', next);
-    }
+      if (next === null) {
+        params.delete('sex');
+      } else {
+        params.set('sex', next);
+      }
 
-    setSearchParams(params);
-  }
+      setSearchParams(params);
+    },
+    [searchParams, setSearchParams],
+  );
 
-  function handleToggleCentury(century: number) {
-    const c = String(century);
-    const current = searchParams.getAll('centuries');
-    const has = current.includes(c);
-    const next = has ? current.filter(v => v !== c) : [...current, c];
+  const handleToggleCentury = useCallback(
+    (century: number) => {
+      const c = String(century);
+      const current = searchParams.getAll('centuries');
+      const has = current.includes(c);
+      const next = has ? current.filter(v => v !== c) : [...current, c];
 
+      const params = new URLSearchParams(searchParams);
+
+      params.delete('centuries');
+
+      if (next.length > 0) {
+        next.forEach(v => params.append('centuries', v));
+      }
+
+      setSearchParams(params);
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const clearAllCenturies = useCallback(() => {
     const params = new URLSearchParams(searchParams);
 
     params.delete('centuries');
-    next.forEach(v => params.append('centuries', v));
     setSearchParams(params);
-  }
+  }, [searchParams, setSearchParams]);
 
-  function clearAllCenturies() {
+  const resetAll = useCallback(() => {
     const params = new URLSearchParams(searchParams);
 
-    params.delete('centuries');
-    setSearchParams(params);
-  }
-
-  function resetAll() {
-    const params = new URLSearchParams(searchParams);
-
-    for (const key of ['centuries', 'query', 'sex', 'sort', 'order']) {
+    for (const key of PARAM_KEYS) {
       params.delete(key);
     }
 
     setSearchParams(params);
-  }
+  }, [searchParams, setSearchParams]);
 
   if (!isReady) {
     return null;
@@ -96,6 +115,7 @@ export const PeopleFilters: React.FC<PeopleFiltersProps> = ({ isReady }) => {
               className={cn({ 'is-active': isActive })}
               onClick={() => handleSexChange(option.value)}
               style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              aria-pressed={isActive}
             >
               {option.label}
             </button>
@@ -113,6 +133,7 @@ export const PeopleFilters: React.FC<PeopleFiltersProps> = ({ isReady }) => {
             placeholder="Search"
             value={query}
             onChange={handleQueryChange}
+            aria-label="Filter by name"
           />
           <span className="icon is-left">
             <i className="fas fa-search" aria-hidden="true" />
@@ -134,6 +155,7 @@ export const PeopleFilters: React.FC<PeopleFiltersProps> = ({ isReady }) => {
                   type="button"
                   className={cn('button mr-1', { 'is-info': hasCentury })}
                   onClick={() => handleToggleCentury(century)}
+                  aria-pressed={hasCentury}
                 >
                   {century}
                 </button>
@@ -161,7 +183,7 @@ export const PeopleFilters: React.FC<PeopleFiltersProps> = ({ isReady }) => {
         <button
           type="button"
           className={cn('button is-link is-fullwidth', {
-            'is-outlined': centuries.length > 0,
+            'is-outlined': centuries.length > 0 || query !== '' || sex !== null,
           })}
           onClick={resetAll}
         >
