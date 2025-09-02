@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import cn from 'classnames';
 
@@ -28,7 +27,10 @@ export const Navbar = () => {
             className={cn('navbar-item', {
               'has-background-grey-lighter': currentPath.startsWith('/people'),
             })}
-            to="/people"
+            to={{
+              pathname: '/people',
+              search: location.search,
+            }}
           >
             People
           </Link>
